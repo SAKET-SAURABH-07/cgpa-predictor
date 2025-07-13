@@ -1,57 +1,97 @@
-import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import os
 import joblib
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.svm import SVR
 from sklearn.metrics import r2_score, mean_squared_error
 
-# Load model and scaler
-model = joblib.load("cgpa_best_model.pkl")
-scaler = joblib.load("cgpa_scaler.pkl")
+# Load CSV
+csv_file_path = 'F:\\ML project\\data.csv.csv'
+if not os.path.exists(csv_file_path):
+    raise FileNotFoundError(f"CSV file not found at path: {csv_file_path}")
 
-st.title("🎓 CGPA Predictor: Actual vs Predicted")
+df = pd.read_csv(csv_file_path)
 
-# Upload CSV for prediction
-uploaded_file = st.file_uploader("Upload CSV file with student features (excluding next_sem_cgpa):", type=["csv"])
+# Rename duplicate columns if needed
+original_cols = df.columns.tolist()
+if len(set(original_cols)) != len(original_cols):
+    new_cols = [f"prev_sem_cgpa" if i < len(original_cols) - 1 else 'next_sem_cgpa' for i in range(len(original_cols))]
+    df.columns = new_cols
 
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    
-    if 'next_sem_cgpa' in df.columns:
-        y_true = df['next_sem_cgpa']
-        X = df.drop('next_sem_cgpa', axis=1)
-    else:
-        y_true = None
-        X = df
-    
-    # Scale input features
-    X_scaled = scaler.transform(X)
+print("Renamed Columns:", df.columns.tolist())
 
-    # Make predictions
-    predictions = model.predict(X_scaled)
+# Drop missing values
+df.dropna(inplace=True)
+print("Cleaned Row Count:", len(df))
+if df.empty:
+    raise ValueError("DataFrame is empty after removing missing values.")
 
-    # Show table
-    result_df = df.copy()
-    result_df['Predicted_CGPA'] = predictions
-    st.dataframe(result_df)
+# Feature and target separation
+X = df.drop('next_sem_cgpa', axis=1)
+y = df['next_sem_cgpa']
 
-    # If actual CGPA exists, show graph
-    if y_true is not None:
-        r2 = r2_score(y_true, predictions)
-        mse = mean_squared_error(y_true, predictions)
-        st.subheader(f"📊 Model Performance")
-        st.write(f"R² Score: `{r2:.4f}` | MSE: `{mse:.4f}`")
+# Ensure all features are numeric
+if not np.all([np.issubdtype(dtype, np.number) for dtype in X.dtypes]):
+    raise ValueError("Non-numeric features found in the input data.")
 
-        # Plot Actual vs Predicted
-        fig, ax = plt.subplots()
-        ax.scatter(y_true, predictions, c='blue', alpha=0.6, label="Predicted")
-        ax.plot([min(y_true), max(y_true)], [min(y_true), max(y_true)], 'r--', label="Perfect Prediction")
-        ax.set_xlabel("Actual CGPA")
-        ax.set_ylabel("Predicted CGPA")
-        ax.set_title("Actual vs Predicted CGPA")
-        ax.legend()
-        st.pyplot(fig)
+# Feature scaling
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
 
-else:
-    st.info("Upload a CSV file to start predicting.")
+# Split data
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
+# Define models
+models = {
+    "Linear Regression": LinearRegression(),
+    "Ridge Regression": Ridge(alpha=1.0),
+    "Lasso Regression": Lasso(alpha=0.01),
+    "Random Forest": RandomForestRegressor(n_estimators=100, random_state=42),
+    "SVR": SVR(kernel='rbf', C=10, epsilon=0.1)
+}
+
+best_model = None
+best_score = -np.inf
+
+print("\nModel Evaluation Results:")
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    score = r2_score(y_test, y_pred)
+    mse = mean_squared_error(y_test, y_pred)
+    print(f"{name}: R² = {score:.4f}, MSE = {mse:.4f}")
+    if score > best_score:
+        best_model = model
+        best_score = score
+        best_model_name = name
+        best_y_pred = y_pred
+
+# Save best model and scaler
+model_path = "cgpa_best_model.pkl"
+scaler_path = "cgpa_scaler.pkl"
+joblib.dump(best_model, model_path)
+joblib.dump(scaler, scaler_path)
+
+print(f"\nBest Model: {best_model_name} with R² Score = {best_score:.4f}")
+print(f"Model saved to {model_path}")
+print(f"Scaler saved to {scaler_path}")
+
+# Show coefficients or feature importances
+if hasattr(best_model, 'coef_'):
+    print("\nFeature Coefficients:")
+    for feature, coef in zip(X.columns, best_model.coef_):
+        print(f"{feature}: {coef:.4f}")
+elif hasattr(best_model, 'feature_importances_'):
+    print("\nFeature Importances:")
+    for feature, importance in zip(X.columns, best_model.feature_importances_):
+        print(f"{feature}: {importance:.4f}")
+
+# Show sample predictions
+print("\nSample Predictions (Actual vs Predicted):")
+for actual, pred in zip(y_test[:5], best_y_pred[:5]):
+    print(f"Actual: {actual:.2f} | Predicted: {pred:.2f}")
