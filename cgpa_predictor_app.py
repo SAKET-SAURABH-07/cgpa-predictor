@@ -41,6 +41,12 @@ predicted_cgpa = model.predict(scaled_features)[0]
 # Show prediction
 st.success(f"📘 Predicted Next Semester CGPA: **{predicted_cgpa:.2f}**")
 
+# ⚠️ Disclaimer
+st.markdown("""
+> ⚠️ **Disclaimer:** This prediction is generated using a machine learning model based on limited data.  
+> It is **not 100% accurate** and should be considered a helpful **estimate**, not a guaranteed result.
+""")
+
 # Show graph
 st.subheader("📈 Your CGPA Prediction on a Line Graph")
 
