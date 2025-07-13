@@ -23,16 +23,8 @@ internet_usage = st.slider("Internet Usage Hours per Day", 0.0, 24.0, 4.0, step=
 stress_level = st.slider("Stress Level (1=Low, 10=High)", 1.0, 10.0, 5.0, step=0.1)
 
 # Input vector
-input_features = np.array([[
-    prev_cgpa,
-    study_hours,
-    attendance,
-    sleep_hours,
-    extracurricular,
-    projects_done,
-    internet_usage,
-    stress_level
-]])
+input_features = np.array([[prev_cgpa, study_hours, attendance, sleep_hours,
+                            extracurricular, projects_done, internet_usage, stress_level]])
 
 # Scale and predict
 scaled_features = scaler.transform(input_features)
@@ -41,10 +33,10 @@ predicted_cgpa = model.predict(scaled_features)[0]
 # Show prediction
 st.success(f"📘 Predicted Next Semester CGPA: **{predicted_cgpa:.2f}**")
 
-# ⚠️ Disclaimer
-st.markdown("""
-> ⚠️ **Disclaimer:** This prediction is generated using a machine learning model based on limited data.  
-> It is **not 100% accurate** and should be considered a helpful **estimate**, not a guaranteed result.
+# ⚠️ Disclaimer (visible right after prediction)
+st.warning("""
+⚠️ **Disclaimer:** This prediction is generated using a machine learning model trained on limited data.  
+It is **not 100% accurate** and should be treated as a helpful **estimate**, not a guaranteed result.
 """)
 
 # Show graph
@@ -52,7 +44,7 @@ st.subheader("📈 Your CGPA Prediction on a Line Graph")
 
 # Create dummy actuals for context
 dummy_x = list(range(20))
-dummy_actuals = np.linspace(4.5, 9.5, 20)  # just for visual context
+dummy_actuals = np.linspace(4.5, 9.5, 20)
 dummy_predictions = dummy_actuals + np.random.normal(0, 0.2, 20)
 dummy_predictions = np.clip(dummy_predictions, 4.0, 10.0)
 
